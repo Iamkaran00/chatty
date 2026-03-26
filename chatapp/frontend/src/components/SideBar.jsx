@@ -15,7 +15,7 @@ const SideBar = () => {
 
   useEffect(() => {
     getUsers();
-  }, []); // only run once
+  }, []);
 
   const filteredUsers = showOnlineOnly
     ? users.filter((user) => onlineUsers.includes(user._id))
@@ -26,7 +26,6 @@ const SideBar = () => {
   return (
     <aside className="h-full w-35 lg:w-72 border-r border-base-300 flex flex-col overflow-y-auto">
 
-      {/* HEADER */}
       <div className="border-b border-base-300 w-full p-5">
 
         <div className="flex items-center gap-3">
@@ -34,7 +33,6 @@ const SideBar = () => {
           <span className="font-medium hidden lg:block">Contacts</span>
         </div>
 
-        {/* ONLINE FILTER */}
         <div className="mt-3 hidden lg:flex items-center gap-2 justify-center">
 
           <label className="cursor-pointer flex items-center gap-2">
@@ -58,7 +56,6 @@ const SideBar = () => {
 
       </div>
 
-      {/* USERS LIST */}
       <div className="flex flex-col gap-2 p-2">
 
         {filteredUsers.map((user) => {
@@ -73,7 +70,6 @@ const SideBar = () => {
               ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}`}
             >
 
-              {/* PROFILE */}
               <div className="relative">
 
                 <img
@@ -88,7 +84,6 @@ const SideBar = () => {
 
               </div>
 
-              {/* USER INFO */}
               <div className="hidden lg:flex flex-col flex-1 min-w-0 text-left">
 
                 <span className="font-medium truncate">
@@ -101,7 +96,6 @@ const SideBar = () => {
 
               </div>
 
-              {/* UNREAD BADGE (optional) */}
               {user.unreadCount > 0 && (
                 <span className="badge badge-primary badge-sm">
                   {user.unreadCount}
