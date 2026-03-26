@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import { Message } from "../models/message.model.js";
 import cloudinary from "../../lib/cloudinary.js";
 import fs from "fs";
-import { getReceiverSocketId ,io} from "../../lib/socket.js";
+import { getReceiverSocketId, io } from "../../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
 
@@ -22,7 +22,7 @@ export const getUsersForSidebar = async (req, res) => {
             { senderId: user._id, receiverId: loggedInUserId }
           ]
         })
-        .sort({ createdAt: -1 });
+          .sort({ createdAt: -1 });
 
         const unreadCount = await Message.countDocuments({
           senderId: user._id,
@@ -72,27 +72,22 @@ export const deleteMessage = async (req, res) => {
         message: "Message Not Found"
       });
     }
- message.isDeleted = true;
- await message.save();
+    message.isDeleted = true;
+    await message.save();
     // const deleted = await Message.deleteOne({ _id: msgId });
-   const senderSocketId = getReceiverSocketId(message.senderId);
-   const receiverSocketId = getReceiverSocketId(message.receiverId);
-   if(senderSocketId) {
-    io.to(senderSocketId).emit("messageDeleted",msgId);
+    const senderSocketId = getReceiverSocketId(message.senderId);
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messageDeleted", msgId);
 
-   }
-  if(receiverSocketId) {
-    io.to(receiverSocketId).emit("messageDeleted",msgId);
-  }
-res.status(200).json( {
-  success : true,
-  message : 'Message Deleted',
-})
-
-
-
-
-
+    }
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", msgId);
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Message Deleted',
+    })
 
   } catch (error) {
     console.log("hi deleet");
@@ -117,7 +112,7 @@ export const getMessagesFunction = async (req, res) => {
         },
         { senderId: userToChatId, receiverId: senderId },
       ],
-    }).sort({createdAt:1}) 
+    }).sort({ createdAt: 1 })
     return res.status(200).json(messages);
   } catch (error) {
     console.log("Internal Server Error");
@@ -127,64 +122,65 @@ export const getMessagesFunction = async (req, res) => {
     });
   }
 };
-export const sendMessageFunction = async (req,res)=>{
-    try {
-        const {text,image,video,audio,gif} = req.body;
-        const {id : receiverId} = req.params;
-        const senderId = req.user._id;
-        let imageUrl ;
-        if(image){
-          
-            const uploadResponse = await cloudinary.uploader.upload(image);
-            imageUrl = uploadResponse.secure_url;
-        }
-        let vidurl
-        if(video) {
-           const uploadResponseforVid = await  cloudinary.uploader.upload(video,{resource_type : 'video'});
-            vidurl = uploadResponseforVid.secure_url;
-            console.log(vidurl,'hi url');
-        }
-        const newMessage = new Message({
-            senderId,
-            receiverId,
-            text,
-            image : imageUrl,
-            video : vidurl,
-            audio,
-            gif
-
-        })
-        await newMessage.save();
-        const receiverSocketId = getReceiverSocketId(receiverId);
-        if(receiverSocketId) {
-          io.to(receiverSocketId).emit("newMessage",newMessage);
-        }
-        res.status(201).json(
-         newMessage
-        )
-     } catch (error) {
-        console.log('error in sendMessage',error.message);
-        res.status(500).json({error:"internal server error"});
-    }
-}
-export const seenMessage = async (req,res) =>{
+export const sendMessageFunction = async (req, res) => {
   try {
-     const {senderId} = req.params;//person who sent message
-   const receiverId = req.user._id;//current logged in guy
-   //chhoti moti validation 
-   if(!senderId ||!receiverId) {
-    return res.status(400).json({message : "Request cannot approve for some reason"})
+    const { text, image, video, audio, gif, whiteboardRoomId } = req.body;
+    const { id: receiverId } = req.params;
+    const senderId = req.user._id;
+    let imageUrl;
+    if (image) {
 
-   }
-   console.log("hi kaise hot");
-   const result = await Message.updateMany({senderId,receiverId,isSeen : false},{$set :{isSeen : true}})
-   return res.status(200).json({
-    message : "message marked as seen",
-     
-   })
+      const uploadResponse = await cloudinary.uploader.upload(image);
+      imageUrl = uploadResponse.secure_url;
+    }
+    let vidurl
+    if (video) {
+      const uploadResponseforVid = await cloudinary.uploader.upload(video, { resource_type: 'video' });
+      vidurl = uploadResponseforVid.secure_url;
+      console.log(vidurl, 'hi url');
+    }
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      text,
+      image: imageUrl,
+      video: vidurl,
+      audio,
+      gif,
+      whiteboardRoomId
+
+    })
+    await newMessage.save();
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    res.status(201).json(
+      newMessage
+    )
   } catch (error) {
-    console.log("An error occured",error);
-    console.log("An Error occured in seen message")
+    console.log('error in sendMessage', error.message);
+    res.status(500).json({ error: "internal server error" });
   }
- 
+}
+export const seenMessage = async (req, res) => {
+  try {
+    const { senderId } = req.params;//person who sent message
+    const receiverId = req.user._id;//current logged in guy
+    if (!senderId || !receiverId) {
+      return res.status(400).json({ message: "Request cannot approve for some reason" })
+
+    }
+    console.log("hi kaise hot");
+    const result = await Message.updateMany({ senderId, receiverId, isSeen: false }, { $set: { isSeen: true } })
+    return res.status(200).json({
+      message: "message marked as seen",
+
+    })
+  } catch (error) {
+    console.log("An error occured", error);
+    console.log("An Error occured in seen message");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+
 }

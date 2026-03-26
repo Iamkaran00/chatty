@@ -2,7 +2,6 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import axios from "axios";
-import { Socket } from "socket.io-client";
 import { useAuthStore } from "./useAuthStore";
 
 export const useChatStore = create((set, get) => ({
@@ -85,34 +84,29 @@ listenMessage: () => {
 
     const { users, messages, selectedUser } = get();
 
-    if (selectedUser && message.senderId === selectedUser._id) {
+    const isActiveChat = selectedUser && message.senderId === selectedUser._id;
 
+    if (isActiveChat) {
       set({
         messages: [...messages, message]
       });
-
     }
 
     const updatedUsers = users.map((u) => {
-
       if (u._id === message.senderId) {
-
         return {
           ...u,
           lastMessage: message.text || "media",
-          unreadCount: (u.unreadCount || 0) + 1
+          unreadCount: isActiveChat ? (u.unreadCount || 0) : (u.unreadCount || 0) + 1
         };
-
       }
-
       return u;
-
     });
 
     set({ users: updatedUsers });
 
   });
-
+ 
 },
 setSelectedUser: (user) => {
 
@@ -127,28 +121,6 @@ setSelectedUser: (user) => {
     )
 
   }));
-
-},
-
-  getUsers: async () => {
-
-  try {
-
-    set({ isUserLoading: true });
-
-    const res = await axiosInstance.get("/messages/users");
-
-    set({ users: res.data });
-
-  } catch (error) {
-
-    console.log(error);
-
-  } finally {
-
-    set({ isUserLoading: false });
-
-  }
 
 },
   listenSeen: () => {
@@ -230,7 +202,7 @@ setSelectedUser: (user) => {
     socket.on("userTyping", (senderId) => {
       const { selectedUser } = get();
       if (!selectedUser) return;
-      if (senderId == selectedUser._id) {
+      if (senderId === selectedUser._id) {
         set({ isTyping: true });
       }
     });
@@ -276,5 +248,24 @@ listenReaction: () => {
       messageId,
       emoji,userId
     })
-  }
+  },
+
+listenWhiteboardInvite : navigate => {
+  const socket = useAuthStore.getState().socket;
+  socket.on('whiteboardinvite',({roomId,senderId})=> {
+    navigate(`/whiteboard/${roomId}`);
+  })
+},
+listenWhiteboardCreated : (navigate) => {
+  const socket = useAuthStore.getState().socket;
+
+  socket.on('whiteboardCreated',({roomId})=> {
+    navigate(`/whiteboard/${roomId}`);
+  })
+},
+unlistenWhiteboard : () => {
+  const socket = useAuthStore.getState().socket;
+  socket.off('whiteboardInvite');
+  socket.off('whiteboardCreated');
+}
 }));

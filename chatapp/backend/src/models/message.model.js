@@ -41,16 +41,20 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    gif : {
-        type : String,
-        default : null
+    gif: {
+      type: String,
+      default: null
     },
-    gameRoomId : {
-      type : String,default : null,
+    gameRoomId: {
+      type: String, default: null,
     },
-    gamePlayed : {
-      type : Boolean,
-      default : false,
+    gamePlayed: {
+      type: Boolean,
+      default: false,
+    },
+    whiteboardRoomId: {
+      type: String,
+      default: null,
     }
   },
 

@@ -32,8 +32,8 @@ export const useAuthStore = create((set,get) => ({
       toast.success("Account created successfully");
       get().connectSocket();
     } catch (err) {
-      toast.error(err.message);
-      console.log("problem in sigup key", err.message);
+      toast.error(err.response?.data?.message || err.message);
+      console.log("problem in signup", err.message);
     } finally {
       set({ isSigningUp: false });
     }
@@ -71,10 +71,11 @@ try {
  try {
    const res = await axiosInstance.put("/auth/update-profile",data);
    toast.success("profile updated successfully");
-   authUser.user.profilePic = res;
+   const currentUser = get().authUser;
+   set({ authUser: { ...currentUser, profilePic: res.data?.profilePic || currentUser.profilePic } });
  } catch (error) {
    console.log("error in update the profile",error);
-   toast.error(error.response.data.message);
+   toast.error(error.response?.data?.message || "Profile update failed");
  } finally{
    set({isUpdatingProfile : false});
  }

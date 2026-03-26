@@ -29,6 +29,7 @@ const ChatHeader = () => {
         </div> 
         <div className="flex gap-4">
           <button onClick = {()=>{navigate('/showwallpaper')} } className="cursor-pointer tooltip tooltip-left bg-base-200 p-2 hover:bg-base-300 hover-transition-colors rounded-2xl " data-tip = "set Background">{<Wallpaper/>}</button>
+          <button onClick = {() => navigate('/whiteboard-invite')} className="bg-base-200 p-2 rounded-2xl tooltip tooltip-bottom" data-tip = 'enter whiteboard'>🎨</button>
         <button onClick={() => setSelectedUsers(null)} className="hover:transform hover:bg-amber-100  hover:text-amber-800 hover:transition-all hover:rounded-full cursor-pointer">
           <X />
         </button>
