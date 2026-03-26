@@ -7,7 +7,7 @@ import cookieparser from "cookie-parser";
 import { connectDB } from "../lib/db.js";
 import messageroute from "./routes/message.route.js";
 import { app ,server} from "../lib/socket.js";
-dotenv.config();
+dotenv.config({override : false});
 const PORT = process.env.PORT;
 app.use(express.json({ limit: "20mb" })); // for JSON requests, including base64 images
 app.use(express.urlencoded({ limit: "40mb", extended: true })); // for form-urlencoded
