@@ -3,7 +3,7 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import {io} from 'socket.io-client'
 import { useNavigate } from "react-router-dom";
-const backend_url = 'http://localhost:5001';
+const backend_url = 'https://chatty-0yi1.onrender.com';
 export const useAuthStore = create((set,get) => ({
   authUser: null,
   isSigningUp: false,
