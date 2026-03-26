@@ -14,7 +14,7 @@ app.use(express.urlencoded({ limit: "40mb", extended: true })); // for form-urle
 
 app.use(cookieparser());
 app.use(cors({
-    origin : 'http://localhost:5173',
+    origin :'https://chatapp-7kki.onrender.com',
     credentials:true,
 }));
 app.use('/api/v1/auth',authRoutes);
