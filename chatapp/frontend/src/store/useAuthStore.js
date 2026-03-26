@@ -72,7 +72,7 @@ try {
    const res = await axiosInstance.put("/auth/update-profile",data);
    toast.success("profile updated successfully");
    const currentUser = get().authUser;
-   set({ authUser: { ...currentUser, profilePic: res.data?.profilePic || currentUser.profilePic } });
+  set({ authUser: { ...currentUser, profilePic: res.data?.user?.profilePic || currentUser.profilePic } })
  } catch (error) {
    console.log("error in update the profile",error);
    toast.error(error.response?.data?.message || "Profile update failed");
