@@ -304,7 +304,7 @@ const Whiteboard = () => {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative top-6">
 
       {/* HEADER */}
       <div className="h-14 bg-white flex items-center justify-between px-4 border-b shrink-0 z-10">
