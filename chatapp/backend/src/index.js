@@ -14,7 +14,7 @@ app.use(express.urlencoded({ limit: "40mb", extended: true })); // for form-urle
 
 app.use(cookieparser());
 app.use(cors({
-    origin :'https://chatapp-7kki.onrender.com',
+    origin :'https://chatty-roan-kappa.vercel.app',
     credentials:true,
 }));
 app.use('/api/v1/auth',authRoutes);
