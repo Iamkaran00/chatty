@@ -168,7 +168,6 @@ const handleTyping = (e) => {
     setIsSending(false);
   };
 
-  /* ================= GAME ================= */
   useEffect(() => {
     if (!socket) return;
 
@@ -289,11 +288,14 @@ const handleTyping = (e) => {
         </button>
       </form>
 
-      {showGif && (
-        <div className="absolute bottom-full right-4 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-base-300 animate-in slide-in-from-bottom-2 fade-in">
-          <Gifpicker onSelect={(g) => { setGif(g); setShowGif(false); }} />
-        </div>
-      )}
+     {showGif && (
+  <div className="absolute bottom-full right-4 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-base-300 animate-in slide-in-from-bottom-2 fade-in">
+    <Gifpicker
+      onSelect={(g) => { setGif(g); setShowGif(false); }}
+      onClose={() => setShowGif(false)}  
+    />
+  </div>
+)}
     </div>
   );
 };
