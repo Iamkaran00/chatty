@@ -26,7 +26,6 @@ export function lastlogin(id) {
   return lastseenMap[id] || null;
 }
 
-// Per-room presence: roomId -> Map<userId, { name, profilePic }>
 const roomPresence = {};
 
 // Per-room debounce timers for DB saves

@@ -30,7 +30,6 @@ const CursorSVG = ({ color }) => (
   </svg>
 );
 
-// ─── PRESENCE BAR ─────────────────────────────────────────────────────────────
 
 const PresenceBar = ({ users, myId }) => {
   if (!users || users.length === 0) return null;
@@ -83,7 +82,6 @@ const PresenceBar = ({ users, myId }) => {
   );
 };
 
-// ─── JOIN / LEAVE TOASTS ──────────────────────────────────────────────────────
 
 const showJoinToast = (name, profilePic, color) => {
   toast.custom((t) => (
@@ -133,7 +131,6 @@ const showLeaveToast = (name, profilePic, color) => {
   ), { duration: 3000 });
 };
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const Whiteboard = () => {
   const socket = useAuthStore((state) => state.socket);
@@ -252,18 +249,24 @@ const Whiteboard = () => {
   }, [socket, apiReady]);
 
   // ─── Send local drawing ───────────────────────────────────────
-  const handleChange = useCallback(
-    (elements) => {
-      if (!socket || isSyncing.current) return;
-      const serialized = JSON.stringify(elements);
-      if (serialized === lastEmitted.current) return;
-      lastEmitted.current = serialized;
-      socket.emit("whiteboard:update", { roomId, canvasData: elements });
-    },
-    [socket, roomId]
-  );
+  const lastEmitTime = useRef(0);
 
-  // ─── Send cursor ──────────────────────────────────────────────
+const handleChange = useCallback(
+  (elements) => {
+    if (!socket || isSyncing.current) return;
+    const serialized = JSON.stringify(elements);
+    if (serialized === lastEmitted.current) return;
+
+    const now = Date.now();
+    // throttle to max 1 emit per 80ms (~12fps) — smooth but not flooding
+    if (now - lastEmitTime.current < 80) return;
+    lastEmitTime.current = now;
+
+    lastEmitted.current = serialized;
+    socket.emit("whiteboard:update", { roomId, canvasData: elements });
+  },
+  [socket, roomId]
+)
   useEffect(() => {
     if (!socket || !authUser) return;
     let lastEmitTime = 0;

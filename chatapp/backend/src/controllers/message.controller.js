@@ -165,8 +165,8 @@ export const sendMessageFunction = async (req, res) => {
 }
 export const seenMessage = async (req, res) => {
   try {
-    const { senderId } = req.params;//person who sent message
-    const receiverId = req.user._id;//current logged in guy
+    const { senderId } = req.params;
+    const receiverId = req.user._id;
     if (!senderId || !receiverId) {
       return res.status(400).json({ message: "Request cannot approve for some reason" })
 

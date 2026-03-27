@@ -37,24 +37,20 @@ const MessageInput = () => {
   const authUser = useAuthStore.getState().authUser;
 
   const navigate = useNavigate();
+const handleTyping = (e) => {
+  setText(e.target.value);
 
-  /* ================= TYPING EVENT LOGIC ================= */
-  const handleTyping = (e) => {
-    setText(e.target.value);
+  if (socket && selectedUser && authUser) {
+    //senderId added — server needs this to know who is typing
+    socket.emit("typing", { senderId: authUser._id, receiverId: selectedUser._id });
 
-    if (socket && selectedUser) {
-      socket.emit("typing", { receiverId: selectedUser._id });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("stopTyping", { senderId: authUser._id, receiverId: selectedUser._id });
+    }, 2000);
+  }
+};
 
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
-      // Stop typing automatically after 2 seconds of inactivity
-      typingTimeoutRef.current = setTimeout(() => {
-        socket.emit("stopTyping", { receiverId: selectedUser._id });
-      }, 2000);
-    }
-  };
-
-  /* ================= MEDIA HANDLERS ================= */
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;

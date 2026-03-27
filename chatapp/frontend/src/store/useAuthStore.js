@@ -81,22 +81,25 @@ try {
  }
   },
 
-  connectSocket : async ()=>{
-    const {authUser} = get();
-    if(authUser == null || get().socket?.connected) return ;
-    const socket = io(backend_url,   {
-      query:{
-      userId : authUser._id,
-        },
-      
-    });
-  socket.connect();
-      set({socket:socket});
-   
-    socket.on("getOnlineUsers",(userIds)=>{
-  set({onlineUsers : userIds})
-    })
-  },
+connectSocket: () => {
+  const { authUser } = get();
+  if (!authUser || get().socket?.connected) return;
+
+  const socket = io(backend_url, {
+    query: { userId: authUser._id },
+  });
+
+  set({ socket });
+
+  socket.on("getOnlineUsers", (userIds) => {
+    set({ onlineUsers: userIds });
+  });
+
+  // Clean up stale state on reconnect
+  socket.on("connect", () => {
+    set({ onlineUsers: [] });
+  });
+},
     disconnectSocket : async ()=>{
     
   if(get().socket?.connected) get().socket?.disconnect();

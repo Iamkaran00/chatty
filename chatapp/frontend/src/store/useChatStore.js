@@ -13,41 +13,51 @@ export const useChatStore = create((set, get) => ({
   isTyping: false,
   isGameActive : false,
   setIsGameActive : status => set({isGameActive :status}),
-  getUsers: async () => {
-    set({ isUsersLoading: true });
-    try {
-      const res = await axiosInstance.get("/messages/users");
-      set({ users: res.data });
-    } catch (error) {
-      toast.error(error.response.data.messages);
-    } finally {
-      set({ isUsersLoading: false });
+getUsers: async () => {
+  set({ isUsersLoading: true });
+  try {
+    const res = await axiosInstance.get("/messages/users");
+    const onlineUsers = useAuthStore.getState().onlineUsers;
+
+    // sort: online first, then by last message time
+    const sorted = [...res.data].sort((a, b) => {
+      const aOnline = onlineUsers.includes(a._id);
+      const bOnline = onlineUsers.includes(b._id);
+      if (aOnline && !bOnline) return -1;
+      if (!aOnline && bOnline) return 1;
+      if (!a.lastMessageTime) return 1;
+      if (!b.lastMessageTime) return -1;
+      return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+    });
+
+    set({ users: sorted });
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Failed to load users");
+  } finally {
+    set({ isUsersLoading: false });
+  }
+},
+
+ deleteMessage: async (messageId) => {
+  try {
+    const res = await axiosInstance.delete("/messages/delete", {
+      data: { id: messageId },
+    });
+    if (!res.data.success) {
+      toast.error(res.data.message);
+      return;
     }
-  },
-
-  deleteMessage: async (messageId) => {
-    try {
-      const { messages } = get();
-      console.log("hi there delete");
-      const res = await axiosInstance.delete("/messages/delete", {
-        data: { id: messageId },
-      });
-
-      if (!res.data.success) {
-        toast.error(res.data.message);
-        return;
-      }
-
-      const updatedMessages = messages.filter((msg) => msg._id !== messageId);
-
-      set({ messages: updatedMessages });
-
-      toast.success("Message deleted");
-    } catch (error) {
-      console.error(error);
-      toast.error("Delete failed");
-    }
-  },
+    // soft-delete to match server — set isDeleted:true instead of removing
+    set((state) => ({
+      messages: state.messages.map((msg) =>
+        msg._id === messageId ? { ...msg, isDeleted: true } : msg
+      ),
+    }));
+    toast.success("Message deleted");
+  } catch (error) {
+    toast.error("Delete failed");
+  }
+},
   getMessages: async (userId) => {
     set({ isMessagesLoading: true });
     try {
@@ -76,19 +86,17 @@ export const useChatStore = create((set, get) => ({
     }
   },
 listenMessage: () => {
-
   const socket = useAuthStore.getState().socket;
-  const authUser = useAuthStore.getState().authUser;
+  socket.off("newMessage"); // prevent stacking
 
   socket.on("newMessage", (message) => {
-
     const { users, messages, selectedUser } = get();
-
     const isActiveChat = selectedUser && message.senderId === selectedUser._id;
 
     if (isActiveChat) {
       set({
-        messages: [...messages, message]
+        messages: [...messages, message],
+        isTyping: false, //clear typing indicator when message arrives
       });
     }
 
@@ -97,31 +105,30 @@ listenMessage: () => {
         return {
           ...u,
           lastMessage: message.text || "media",
-          unreadCount: isActiveChat ? (u.unreadCount || 0) : (u.unreadCount || 0) + 1
+          lastMessageTime: new Date().toISOString(), //update time for sorting
+          unreadCount: isActiveChat ? 0 : (u.unreadCount || 0) + 1,
         };
       }
       return u;
     });
 
-    set({ users: updatedUsers });
+    // re-sort so active/recent chats float to top
+    updatedUsers.sort((a, b) => {
+      if (!a.lastMessageTime) return 1;
+      if (!b.lastMessageTime) return -1;
+      return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+    });
 
+    set({ users: updatedUsers });
   });
- 
 },
 setSelectedUser: (user) => {
-
   set((state) => ({
-
     selectedUser: user,
-
-    users: state.users.map((u) =>
-      u._id === user._id
-        ? { ...u, unreadCount: 0 }
-        : u
-    )
-
+    users: user
+      ? state.users.map((u) => u._id === user._id ? { ...u, unreadCount: 0 } : u)
+      : state.users,
   }));
-
 },
   listenSeen: () => {
     const socket = useAuthStore.getState().socket;
@@ -162,10 +169,7 @@ setSelectedUser: (user) => {
     const socket = useAuthStore.getState().socket;
     socket.off("newMessage");
   },
-
-  setSelectedUsers: async (selecteduser) => {
-    set({ selectedUser: selecteduser });
-  },
+ 
   markMessageSeen: async (senderId) => {
     try {
       const socket = useAuthStore.getState().socket;
@@ -196,25 +200,26 @@ setSelectedUser: (user) => {
     socket.off("messageDeleted");
   },
   listenTyping: () => {
-    const socket = useAuthStore.getState().socket;
-    socket.off("userTyping");
-    socket.off("userStopTyping");
-    socket.on("userTyping", (senderId) => {
-      const { selectedUser } = get();
-      if (!selectedUser) return;
-      if (senderId === selectedUser._id) {
-        set({ isTyping: true });
-      }
-    });
-    socket.on("userStopTyping", (senderId) => {
-      const { selectedUser } = get();
-      if (!selectedUser) return;
+  const socket = useAuthStore.getState().socket;
+  //  always remove before re-adding so they don't stack
+  socket.off("userTyping");
+  socket.off("userStopTyping");
 
-      if (senderId === selectedUser._id) {
-        set({ isTyping: false });
-      }
-    });
-  },
+  socket.on("userTyping", (senderId) => {
+    //  read selectedUser fresh from store, not from stale closure
+    const { selectedUser } = useChatStore.getState();
+    if (selectedUser && senderId === selectedUser._id) {
+      set({ isTyping: true });
+    }
+  });
+
+  socket.on("userStopTyping", (senderId) => {
+    const { selectedUser } = useChatStore.getState();
+    if (selectedUser && senderId === selectedUser._id) {
+      set({ isTyping: false });
+    }
+  });
+},
   unlistenTyping: () => {
     const socket = useAuthStore.getState().socket;
     socket.off("userTyping");
@@ -250,18 +255,21 @@ listenReaction: () => {
     })
   },
 
-listenWhiteboardInvite : navigate => {
+listenWhiteboardInvite: (navigate) => {
   const socket = useAuthStore.getState().socket;
-  socket.on('whiteboardinvite',({roomId,senderId})=> {
+  socket.off("whiteboardInvite"); // remove old listener first
+  // ✅ capital I — matches what the server actually emits
+  socket.on("whiteboardInvite", ({ roomId, senderId }) => {
     navigate(`/whiteboard/${roomId}`);
-  })
+  });
 },
-listenWhiteboardCreated : (navigate) => {
-  const socket = useAuthStore.getState().socket;
 
-  socket.on('whiteboardCreated',({roomId})=> {
+listenWhiteboardCreated: (navigate) => {
+  const socket = useAuthStore.getState().socket;
+  socket.off("whiteboardCreated");
+  socket.on("whiteboardCreated", ({ roomId }) => {
     navigate(`/whiteboard/${roomId}`);
-  })
+  });
 },
 unlistenWhiteboard : () => {
   const socket = useAuthStore.getState().socket;
