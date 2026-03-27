@@ -6,7 +6,7 @@ import img from "../assets/smartboy.jpg";
 import { useAuthStore } from "../store/useAuthStore";
 
 const SideBar = () => {
-  const { getUsers, users, selectedUser, setSelectedUsers, isUserLoading } =
+  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } =
     useChatStore();
 
   const { onlineUsers } = useAuthStore();
@@ -21,7 +21,7 @@ const SideBar = () => {
     ? users.filter((user) => onlineUsers.includes(user._id))
     : users;
 
-  if (isUserLoading) return <SidebarSkeleton />;
+  if (isUsersLoading) return <SidebarSkeleton />;
 
   return (
     <aside className="h-full w-35 lg:w-72 border-r border-base-300 flex flex-col overflow-y-auto">
@@ -65,7 +65,7 @@ const SideBar = () => {
           return (
             <button
               key={user._id}
-              onClick={() => setSelectedUsers(user)}
+              onClick={() => setSelectedUser(user)}
               className={`w-full p-3 flex items-center gap-3 rounded-xl hover:bg-base-300 transition
               ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}`}
             >
