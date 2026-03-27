@@ -110,8 +110,11 @@ export const logout = async (req, res) => {
       req.user._id,
       { lastSeen: lastSeen }
     );
-
-    res.clearCookie("jwt");
+res.clearCookie("jwt", {
+  httpOnly: true,
+  sameSite: "none",
+  secure: true,
+});;
 
     res.status(200).json({
       success: true,

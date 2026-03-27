@@ -451,9 +451,9 @@ const ChatContainer = () => {
                 background: "var(--cc-theirs)", borderRadius: "4px 18px 18px 18px",
                 padding: "12px 16px", display: "flex", alignItems: "center", gap: 6,
               }}>
-                <span className="cc-dot" />
-                <span className="cc-dot" />
-                <span className="cc-dot" />
+                <span className="cc-dot text-red-500" />
+                <span className="cc-dot text-red-500" />
+                <span className="cc-dot text-red-500" />
               </div>
             </div>
           )}

@@ -1,11 +1,16 @@
-import { Excalidraw } from "@excalidraw/excalidraw";
+ 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Share2, ArrowLeft, Paintbrush, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
+import { lazy, Suspense } from "react";
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const Excalidraw = lazy(() =>
+  import("@excalidraw/excalidraw").then((mod) => ({
+    default: mod.Excalidraw,
+  }))
+);
 
 const getUserColor = (userId) => {
   if (!userId) return "#6366f1";
@@ -16,7 +21,6 @@ const getUserColor = (userId) => {
   return `hsl(${Math.abs(hash) % 360}, 70%, 50%)`;
 };
 
-// ─── CURSOR SVG ───────────────────────────────────────────────────────────────
 
 const CursorSVG = ({ color }) => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
@@ -300,7 +304,7 @@ const Whiteboard = () => {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative top-13">
 
       {/* HEADER */}
       <div className="h-14 bg-white flex items-center justify-between px-4 border-b shrink-0 z-10">

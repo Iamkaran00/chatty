@@ -3,7 +3,7 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import {io} from 'socket.io-client'
 import { useNavigate } from "react-router-dom";
-const backend_url = 'http://localhost:5001';
+const backend_url = 'https://chatty-0yi1.onrender.com';
 export const useAuthStore = create((set,get) => ({
   authUser: null,
   isSigningUp: false,
@@ -72,7 +72,7 @@ try {
    const res = await axiosInstance.put("/auth/update-profile",data);
    toast.success("profile updated successfully");
    const currentUser = get().authUser;
-   set({ authUser: { ...currentUser, profilePic: res.data?.profilePic || currentUser.profilePic } });
+  set({ authUser: { ...currentUser, profilePic: res.data?.user?.profilePic || currentUser.profilePic } })
  } catch (error) {
    console.log("error in update the profile",error);
    toast.error(error.response?.data?.message || "Profile update failed");
