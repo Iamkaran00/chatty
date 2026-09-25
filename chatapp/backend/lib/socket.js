@@ -4,13 +4,14 @@ import setupRaceHandlers from "../src/game/game1/racehandler.js";
 import express from 'express';
 import { Whiteboard } from "../src/models/whiteboard.model.js";
 import { Message } from "../src/models/message.model.js";
-
+import { Group } from "../src/models/group.model.js";
+import { GroupMessage } from "../src/models/group.message.model.js";
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ['https://chatty-roan-kappa.vercel.app'],
+    origin: ['http://localhost:5173'],
     credentials: true,
   }
 });
@@ -42,24 +43,43 @@ io.on("connection", socket => {
   }
 
   userSocketMap[userId] = socket.id;
+  Group.find({ members: userId }).then((groups) => {
+  groups.forEach((g) => socket.join(g._id.toString()));
+});
+socket.on('group:joinRoom', ({groupId}) => {
+  socket.join(groupId.toString());
+})
+socket.on('group:leaveRoom',({groupId}) => {
+  socket.leave(groupId.toString());
+})
+socket.on("group:react", async ({ messageId, emoji, groupId }) => {
+  try {
+    const msg = await GroupMessage.findById(messageId);
+    if (!msg) return;
+    const existing = msg.reactions.find((r) => r.userId.toString() === userId);
+    if (existing) existing.emoji = emoji;
+    else msg.reactions.push({ userId, emoji });
+    await msg.save();
+    io.to(groupId).emit("group:reactionUpdate", { messageId, reactions: msg.reactions });
+  } catch (e) { console.log("group react error", e); }
+});
+
+
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   setupRaceHandlers(io, socket, getReceiverSocketId);
 
-  // ─── DISCONNECT ───────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log("user got disconnected", socket.id);
     lastseenMap[userId] = Date.now();
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-    // Remove from all rooms this socket was in and notify
     for (const roomId of socket.rooms) {
       if (!roomPresence[roomId]) continue;
       const user = roomPresence[roomId].get(userId);
       roomPresence[roomId].delete(userId);
 
-      // Notify remaining users in the room
       socket.to(roomId).emit("whiteboard:userLeft", {
         userId,
         name: user?.name || "Someone",
@@ -68,8 +88,6 @@ io.on("connection", socket => {
       });
     }
   });
-
-  // ─── MESSAGES ─────────────────────────────────────────────────
   socket.on("markAsSeen", async ({ senderId, receiverId }) => {
     try {
       await Message.updateMany(
@@ -165,8 +183,9 @@ io.on("connection", socket => {
 
   // ─── WHITEBOARD UPDATE ────────────────────────────────────────
   socket.on("whiteboard:update", ({ roomId, canvasData }) => {
-    // Send to everyone else in the room — NOT back to sender
-    socket.to(roomId).emit("whiteboard:receive", canvasData);
+    // Volatile: each update has full state, so dropped packets are harmless
+    // — prevents queue build-up that causes jitter/latency
+    socket.volatile.to(roomId).emit("whiteboard:receive", canvasData);
 
     // Debounced DB save
     if (boardSyncTimers[roomId]) clearTimeout(boardSyncTimers[roomId]);
@@ -193,13 +212,16 @@ io.on("connection", socket => {
       users: Array.from(roomPresence[roomId].values()),
     });
   });
-  // ─── CURSOR ───────────────────────────────────────────────────
+   
   socket.on('cursor:move', (data) => {
-    socket.to(data.roomId).emit('cursor:move', {
+ 
+    socket.volatile.to(data.roomId).emit('cursor:move', {
       ...data,
       userId: socket.userId,
     });
   });
+
+
 });
 
 export { io, app, server };

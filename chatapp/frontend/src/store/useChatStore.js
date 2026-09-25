@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
-import axios from "axios";
 import { useAuthStore } from "./useAuthStore";
 
 export const useChatStore = create((set, get) => ({
@@ -47,7 +46,7 @@ getUsers: async () => {
       toast.error(res.data.message);
       return;
     }
-    // soft-delete to match server — set isDeleted:true instead of removing
+    
     set((state) => ({
       messages: state.messages.map((msg) =>
         msg._id === messageId ? { ...msg, isDeleted: true } : msg
@@ -96,7 +95,7 @@ listenMessage: () => {
     if (isActiveChat) {
       set({
         messages: [...messages, message],
-        isTyping: false, //clear typing indicator when message arrives
+        isTyping: false, 
       });
     }
 
@@ -105,7 +104,7 @@ listenMessage: () => {
         return {
           ...u,
           lastMessage: message.text || "media",
-          lastMessageTime: new Date().toISOString(), //update time for sorting
+          lastMessageTime: new Date().toISOString(), 
           unreadCount: isActiveChat ? 0 : (u.unreadCount || 0) + 1,
         };
       }

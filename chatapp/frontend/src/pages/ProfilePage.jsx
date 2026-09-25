@@ -6,7 +6,7 @@ import { formatDate } from "../lib/formatdate";
 import smartboy from "../assets/smartboy.jpg"
 export const ProfilePage = () => {
   const {authUser,isUpdatingProfile,updateProfile} = useAuthStore();
- 
+ console.log(authUser,"this is auth User");
    console.log(authUser,'yeh user hai!');
   const [selectedImg,setSelectedImg] = useState(null);
   const handleImageUpload = async (e) => {

@@ -35,7 +35,7 @@ const ChatHeader = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
+       
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate("/showwallpaper")}

@@ -1,5 +1,5 @@
- 
-import { useEffect, useRef, useState, useCallback } from "react";
+
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Share2, ArrowLeft, Paintbrush, LogOut } from "lucide-react";
@@ -132,6 +132,52 @@ const showLeaveToast = (name, profilePic, color) => {
 };
 
 
+// ─── Remote Cursors Overlay ─────────────────────────────────────
+// Memo'd so cursor updates don't trigger Excalidraw re-renders
+const RemoteCursors = memo(({ cursors }) => {
+  return Object.values(cursors).map((c) => {
+    if (!c?.userId) return null;
+    const color = getUserColor(c.userId);
+    return (
+      <div key={c.userId} style={{
+        position: "fixed", left: c.x, top: c.y,
+        pointerEvents: "none", zIndex: 9999,
+        transition: "left 0.08s linear, top 0.08s linear, opacity 0.6s ease",
+        opacity: c.idle ? 0 : 1,
+      }}>
+        <CursorSVG color={color} />
+        <div style={{
+          marginTop: "2px", marginLeft: "14px",
+          background: color, color: "#fff",
+          fontSize: "11px", fontWeight: 600,
+          fontFamily: "sans-serif", padding: "3px 8px",
+          borderRadius: "20px", whiteSpace: "nowrap",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+          display: "flex", alignItems: "center", gap: 5,
+        }}>
+          {c.profilePic ? (
+            <img src={c.profilePic} alt={c.name} style={{
+              width: 14, height: 14, borderRadius: "50%",
+              objectFit: "cover", border: "1px solid rgba(255,255,255,0.5)",
+            }} />
+          ) : (
+            <div style={{
+              width: 14, height: 14, borderRadius: "50%",
+              background: "rgba(255,255,255,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 8, fontWeight: 800,
+            }}>
+              {c.name?.[0]?.toUpperCase() || "?"}
+            </div>
+          )}
+          {c.name || "user"}
+        </div>
+      </div>
+    );
+  });
+});
+
+
 const Whiteboard = () => {
   const socket = useAuthStore((state) => state.socket);
   const authUser = useAuthStore((state) => state.authUser);
@@ -140,6 +186,7 @@ const Whiteboard = () => {
 
   const excalidrawAPIRef = useRef(null);
   const isSyncing = useRef(false);
+  const syncTimeout = useRef(null);
   const lastEmitted = useRef(null);
 
   const [apiReady, setApiReady] = useState(false);
@@ -149,8 +196,6 @@ const Whiteboard = () => {
   const cursorTimers = useRef({});
 
   // ─── Leave handler ────────────────────────────────────────────
-  // Tells the server we left the room explicitly (before disconnect),
-  // so presence updates immediately rather than waiting for socket timeout
   const handleLeave = useCallback(() => {
     if (socket) {
       socket.emit("whiteboard:leave", { roomId });
@@ -166,7 +211,6 @@ const Whiteboard = () => {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
-      // Cleanup when component unmounts (e.g. navigate away)
       if (socket) socket.emit("whiteboard:leave", { roomId });
     };
   }, [socket, roomId]);
@@ -192,9 +236,11 @@ const Whiteboard = () => {
       excalidrawAPIRef.current.updateScene({
         elements: Array.isArray(elements) ? elements : [],
       });
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      // Use a robust timeout instead of fragile double-rAF
+      clearTimeout(syncTimeout.current);
+      syncTimeout.current = setTimeout(() => {
         isSyncing.current = false;
-      }));
+      }, 100);
       setLoading(false);
     };
 
@@ -204,6 +250,7 @@ const Whiteboard = () => {
     return () => {
       socket.off("whiteboard:load", onLoad);
       clearTimeout(fallback);
+      clearTimeout(syncTimeout.current);
     };
   }, [socket, roomId, apiReady, authUser]);
 
@@ -239,41 +286,61 @@ const Whiteboard = () => {
       isSyncing.current = true;
       lastEmitted.current = JSON.stringify(elements);
       excalidrawAPIRef.current.updateScene({ elements });
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      // Use a robust timeout instead of fragile double-rAF
+      clearTimeout(syncTimeout.current);
+      syncTimeout.current = setTimeout(() => {
         isSyncing.current = false;
-      }));
+      }, 100);
     };
 
     socket.on("whiteboard:receive", onReceive);
-    return () => socket.off("whiteboard:receive", onReceive);
+    return () => {
+      socket.off("whiteboard:receive", onReceive);
+      clearTimeout(syncTimeout.current);
+    };
   }, [socket, apiReady]);
 
-  // ─── Send local drawing ───────────────────────────────────────
+  // ─── Send local drawing (throttled at 150ms ~6.7fps) ──────────
   const lastEmitTime = useRef(0);
 
-const handleChange = useCallback(
-  (elements) => {
-    if (!socket || isSyncing.current) return;
-    const serialized = JSON.stringify(elements);
-    if (serialized === lastEmitted.current) return;
+  const handleChange = useCallback(
+    (elements) => {
+      if (!socket || isSyncing.current) return;
 
-    const now = Date.now();
-    // throttle to max 1 emit per 80ms (~12fps) — smooth but not flooding
-    if (now - lastEmitTime.current < 80) return;
-    lastEmitTime.current = now;
+      const now = Date.now();
+      // Throttle to max 1 emit per 150ms — still smooth, but much less flooding
+      if (now - lastEmitTime.current < 150) return;
 
-    lastEmitted.current = serialized;
-    socket.emit("whiteboard:update", { roomId, canvasData: elements });
-  },
-  [socket, roomId]
-)
+      const serialized = JSON.stringify(elements);
+      if (serialized === lastEmitted.current) return;
+
+      lastEmitTime.current = now;
+      lastEmitted.current = serialized;
+      socket.emit("whiteboard:update", { roomId, canvasData: elements });
+    },
+    [socket, roomId]
+  );
+
+  // ─── Send cursor (throttled at 100ms, only when moved) ────────
   useEffect(() => {
     if (!socket || !authUser) return;
-    let lastEmitTime = 0;
+    let lastCursorEmitTime = 0;
+    let lastX = 0;
+    let lastY = 0;
+
     const handleMove = (e) => {
       const now = Date.now();
-      if (now - lastEmitTime < 50) return;
-      lastEmitTime = now;
+      if (now - lastCursorEmitTime < 100) return;
+
+      // Only emit if cursor actually moved significantly (>5px)
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      if (dx * dx + dy * dy < 25) return;
+
+      lastCursorEmitTime = now;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
       socket.emit("cursor:move", {
         roomId, x: e.clientX, y: e.clientY,
         name: authUser.fullName,
@@ -307,13 +374,12 @@ const handleChange = useCallback(
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative top-18">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#f1f5f9] relative">
 
       {/* HEADER */}
       <div className="h-14 bg-white flex items-center justify-between px-4 border-b shrink-0 z-10">
 
         <div className="flex items-center gap-3">
-          {/* LEAVE BUTTON — tells server before navigating away */}
           <button
             onClick={handleLeave}
             title="Leave board"
@@ -349,62 +415,29 @@ const handleChange = useCallback(
         </div>
       )}
 
-      {/* CANVAS */}
+      {/* CANVAS — wrapped in Suspense for the lazy-loaded Excalidraw */}
       <div className="flex-1 relative">
-        <Excalidraw
-          excalidrawAPI={handleExcalidrawAPI}
-          initialData={{
-            elements: [],
-            appState: { viewBackgroundColor: "#f1f5f9", gridSize: 20 },
-          }}
-          UIOptions={{
-            canvasActions: { loadScene: false, saveToActiveFile: false },
-          }}
-          onChange={handleChange}
-        />
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="animate-spin w-8 h-8 text-gray-400" />
+          </div>
+        }>
+          <Excalidraw
+            excalidrawAPI={handleExcalidrawAPI}
+            initialData={{
+              elements: [],
+              appState: { viewBackgroundColor: "#f1f5f9", gridSize: 20 },
+            }}
+            UIOptions={{
+              canvasActions: { loadScene: false, saveToActiveFile: false },
+            }}
+            onChange={handleChange}
+          />
+        </Suspense>
       </div>
 
-      {/* CURSORS */}
-      {Object.values(cursors).map((c) => {
-        if (!c?.userId) return null;
-        const color = getUserColor(c.userId);
-        return (
-          <div key={c.userId} style={{
-            position: "fixed", left: c.x, top: c.y,
-            pointerEvents: "none", zIndex: 9999,
-            transition: "left 0.05s linear, top 0.05s linear, opacity 0.6s ease",
-            opacity: c.idle ? 0 : 1,
-          }}>
-            <CursorSVG color={color} />
-            <div style={{
-              marginTop: "2px", marginLeft: "14px",
-              background: color, color: "#fff",
-              fontSize: "11px", fontWeight: 600,
-              fontFamily: "sans-serif", padding: "3px 8px",
-              borderRadius: "20px", whiteSpace: "nowrap",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-              display: "flex", alignItems: "center", gap: 5,
-            }}>
-              {c.profilePic ? (
-                <img src={c.profilePic} alt={c.name} style={{
-                  width: 14, height: 14, borderRadius: "50%",
-                  objectFit: "cover", border: "1px solid rgba(255,255,255,0.5)",
-                }} />
-              ) : (
-                <div style={{
-                  width: 14, height: 14, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.3)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 8, fontWeight: 800,
-                }}>
-                  {c.name?.[0]?.toUpperCase() || "?"}
-                </div>
-              )}
-              {c.name || "user"}
-            </div>
-          </div>
-        );
-      })}
+      {/* CURSORS — memo'd to prevent Excalidraw re-renders */}
+      <RemoteCursors cursors={cursors} />
     </div>
   );
 };

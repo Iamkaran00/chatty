@@ -2,9 +2,12 @@ import React from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { LogOut, MessageSquare, Settings, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CreateGroupModal from './CreateGroupModal';
 export const Navbar = () => {
   const {logout,authUser} = useAuthStore();
+  const [showGroupModal,setShowGroupModal] = useState(false);
   const navigate = useNavigate();
   return (
     <header
@@ -25,6 +28,17 @@ export const Navbar = () => {
                <Settings className='w-4 h-4' />
                <span className='hidden sm:inline'>Settings</span>
               </Link>
+{authUser && (
+  <button
+    className="btn btn-ghost btn-sm btn-circle"
+    onClick={() => setShowGroupModal(true)}
+    title="Create / manage groups"
+  >
+    <User className="size-5" />
+  </button>
+)}
+{showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
+
                {authUser && (
                 <>
                 <Link to = {'/profile'} className = {'btn btn-sm gap-2'}>

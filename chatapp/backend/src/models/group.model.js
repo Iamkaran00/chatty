@@ -1,0 +1,28 @@
+import mongoose from "mongoose" ;
+
+const groupSchema = new mongoose.Schema ( {
+
+name  : {
+    type : String , required : true , trim : true
+},
+avatar : {type : String, default : ""},
+members : [ {
+    type : mongoose.Schema.Types.ObjectId , ref : "User"
+}],
+admins : [
+    {
+    type : mongoose.Schema.Types.ObjectId, ref : "User"
+    }
+],
+createdBy : {
+    type : mongoose.Schema.Types.ObjectId, ref : "User" , required : true
+},
+lastMessage : {type : String, default : ""},
+lastMessageTime : {type : Date, default : null},
+
+
+},{
+    timestamps : true
+}
+)
+export const Group = mongoose.model("Group",groupSchema);

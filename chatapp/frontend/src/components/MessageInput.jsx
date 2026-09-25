@@ -32,9 +32,9 @@ const MessageInput = () => {
 
   const [showGif, setShowGif] = useState(false);
 
-  const socket = useAuthStore.getState().socket;
-  const selectedUser = useChatStore.getState().selectedUser;
-  const authUser = useAuthStore.getState().authUser;
+  const socket = useAuthStore((s) => s.socket);
+  const selectedUser = useChatStore((s) => s.selectedUser);
+  const authUser = useAuthStore((s) => s.authUser);
 
   const navigate = useNavigate();
 const handleTyping = (e) => {
@@ -146,8 +146,8 @@ const handleTyping = (e) => {
     setIsSending(true);
 
     // Immediately stop the typing animation for the other user when we send
-    if (socket && selectedUser) {
-      socket.emit("stopTyping", { receiverId: selectedUser._id });
+    if (socket && selectedUser && authUser) {
+      socket.emit("stopTyping", { senderId: authUser._id, receiverId: selectedUser._id });
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
 
